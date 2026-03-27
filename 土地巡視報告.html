@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>土地巡檢報告系統 - 語音輸入版</title>
+    <style>
+        body { font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; padding: 15px; max-width: 950px; margin: auto; color: #333; background-color: #f0f2f5; }
+        .no-print { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        h2 { margin-top: 0; font-size: 18px; color: #1a73e8; border-left: 5px solid #1a73e8; padding-left: 10px; margin-bottom: 15px; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #555; }
+        
+        /* 輸入框與語音按鈕組合 */
+        .input-with-voice { display: flex; gap: 5px; align-items: flex-start; }
+        input[type="text"], input[type="date"], input[type="file"], select, textarea { 
+            flex: 1; padding: 12px; border: 1px solid #ced4da; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
+        }
+        
+        .voice-btn { 
+            padding: 10px; background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 8px; 
+            cursor: pointer; font-size: 20px; line-height: 1; transition: 0.3s; width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .voice-btn:hover { background-color: #e2e6ea; }
+        .voice-btn.listening { background-color: #ff4d4f; color: white; animation: pulse 1.5s infinite; border-color: #ff4d4f; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        .row-flex { display: flex; gap: 10px; margin-bottom: 10px; }
+        .row-flex > div { flex: 1; }
+        #otherStatusWrapper { margin-top: 10px; display: none; background: #fffde7; padding: 10px; border-radius: 8px; border: 1px dashed #fbc02d; }
+        
+        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        button.action-btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; color: white; }
+        .add-btn { background-color: #1a73e8; }
+        .print-btn { background-color: #34a853; }
+        .clear-btn { background-color: #ea4335; }
+
+        /* 報告顯示樣式 */
+        #report-preview { background: white; padding: 20px; border-radius: 8px; }
+        .report-header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 15px; }
+        .report-meta { display: flex; justify-content: space-around; margin-top: 15px; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        td { padding: 10px; vertical-align: top; border: 1px solid #eee; }
+        .img-cell { height: 280px; text-align: center; vertical-align: middle; }
+        .img-cell img { max-width: 100%; max-height: 270px; object-fit: contain; }
+        .text-cell { padding-bottom: 40px; }
+        .lot-info { font-weight: bold; font-size: 16px; display: block; margin-bottom: 5px; }
+        .status-info { color: #c53030; font-weight: bold; display: block; margin-bottom: 5px; }
+        .remark-info { font-size: 14px; color: #666; font-style: italic; white-space: pre-wrap; }
+
+        @media print { .no-print { display: none; } td { border: none; } }
+        @media (min-width: 600px) { .btn-group { flex-direction: row; } }
+    </style>
+</head>
+<body>
+
+    <div class="no-print">
+        <div class="form-group">
+            <h2>📄 1. 報告基本資料</h2>
+            <div class="form-group">
+                <label>報告標題</label>
+                <div class="input-with-voice">
+                    <input type="text" id="reportTitle" placeholder="輸入報告名稱" oninput="updateHeader()">
+                    <button class="voice-btn" onclick="startVoice('reportTitle')">🎤</button>
+                </div>
+            </div>
+            <div class="row-flex">
+                <div>
+                    <label>報告人</label>
+                    <div class="input-with-voice">
+                        <input type="text" id="inspector" placeholder="姓名" oninput="updateHeader()">
+                        <button class="voice-btn" onclick="startVoice('inspector')">🎤</button>
+                    </div>
+                </div>
+                <div>
+                    <label>巡查日期</label>
+                    <input type="date" id="reportDate" onchange="updateHeader()">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <h2>📝 2. 新增巡點資料</h2>
+            <label>拍照或選擇相片</label>
+            <input type="file" id="imgInput" accept="image/*">
+            
+            <div class="form-group" style="margin-top:10px;">
+                <label>地段編號 (DD Lot)</label>
+                <div class="input-with-voice">
+                    <input type="text" id="lotInput" placeholder="例如：Lot 789">
+                    <button class="voice-btn" onclick="startVoice('lotInput')">🎤</button>
+                </div>
+            </div>
+
+            <div class="row-flex">
+                <div>
+                    <label>土地狀況 (大類)</label>
+                    <select id="mainStatus" onchange="updateSubStatus()">
+                        <option value="已出租">已出租</option>
+                        <option value="未出租">未出租</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div id="subStatusContainer">
+                    <label>詳細分類</label>
+                    <select id="subStatus"></select>
+                </div>
+            </div>
+            
+            <div id="otherStatusWrapper">
+                <label>請填寫具體說明：</label>
+                <div class="input-with-voice">
+                    <input type="text" id="otherStatusInput" placeholder="請輸入...">
+                    <button class="voice-btn" onclick="startVoice('otherStatusInput')">🎤</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 10px;">
+                <label>備註記錄</label>
+                <div class="input-with-voice">
+                    <textarea id="remarkInput" placeholder="描述現場發現的其他細節..."></textarea>
+                    <button class="voice-btn" onclick="startVoice('remarkInput')">🎤</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="action-btn add-btn" onclick="addEntry()">➕ 加入項目</button>
+            <button class="action-btn print-btn" onclick="window.print()">🖨️ 生成 PDF 報告</button>
+            <button class="action-btn clear-btn" onclick="clearAll()">🗑️ 重設全部</button>
+        </div>
+    </div>
+
+    <div id="report-preview">
+        <div class="report-header">
+            <h1 id="h_title">土地巡檢報告</h1>
+            <div class="report-meta">
+                <span id="h_name">報告人：-</span>
+                <span id="h_date">日期：-</span>
+            </div>
+        </div>
+        <table id="reportTable"><tbody></tbody></table>
+    </div>
+
+    <script>
+        let entries = [];
+        const statusData = {
+            "已出租": ["正常使用", "未有使用", "違規使用"],
+            "未出租": ["正常空置", "被違規佔用"],
+            "其他": []
+        };
+
+        // 初始化
+        window.onload = () => {
+            document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+            updateSubStatus();
+            updateHeader();
+        };
+
+        // 語音輸入邏輯
+      function startVoice(targetId) {
+    // 1. 檢查是否為安全連線 (手機版必須)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        alert("語音功能失敗：手機版必須在 HTTPS 安全連線下才能啟動麥克風。請將檔案上傳至伺服器或使用電腦測試。");
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("您的瀏覽器不支援語音識別。建議：Android 使用 Chrome，iPhone 使用 Safari。");
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-HK';
+    recognition.continuous = false; // 偵測到一段話後自動停止
+    recognition.interimResults = false;
+
+    const btn = event.currentTarget;
+    const inputField = document.getElementById(targetId);
+
+    recognition.onstart = () => {
+        btn.classList.add('listening');
+        // 震動回饋 (僅限 Android 支援)
+        if (navigator.vibrate) navigator.vibrate(50);
+    };
+
+    recognition.onerror = (event) => {
+        btn.classList.remove('listening');
+        console.error("語音錯誤類型: ", event.error);
+        
+        switch(event.error) {
+            case 'not-allowed':
+                alert("錯誤：麥克風存取被拒。請到手機「設定」中允許瀏覽器使用麥克風。");
+                break;
+            case 'network':
+                alert("錯誤：語音識別需要網路連線。");
+                break;
+            case 'no-speech':
+                // 忽略無聲音的情況，避免頻繁彈窗
+                break;
+            default:
+                alert("語音識別錯誤: " + event.error);
+        }
+    };
+
+    recognition.onend = () => {
+        btn.classList.remove('listening');
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (inputField) {
+            const oldVal = inputField.value.trim();
+            inputField.value = oldVal ? oldVal + " " + transcript : transcript;
+            // 如果是標題或報告人，同步更新預覽
+            if (targetId === 'reportTitle' || targetId === 'inspector') updateHeader();
+        }
+    };
+
+    try {
+        recognition.start();
+    } catch (e) {
+        console.error("識別啟動異常: ", e);
+    }
+}
+        function updateSubStatus() {
+            const main = document.getElementById('mainStatus').value;
+            const subSelect = document.getElementById('subStatus');
+            const subContainer = document.getElementById('subStatusContainer');
+            const otherWrapper = document.getElementById('otherStatusWrapper');
+            subSelect.innerHTML = "";
+            if (statusData[main].length > 0) {
+                subContainer.style.visibility = "visible";
+                statusData[main].forEach(opt => {
+                    let el = document.createElement("option");
+                    el.value = opt; el.innerText = opt;
+                    subSelect.appendChild(el);
+                });
+                otherWrapper.style.display = "none";
+            } else {
+                subContainer.style.visibility = "hidden";
+                otherWrapper.style.display = "block";
+            }
+        }
+
+        function updateHeader() {
+            document.getElementById('h_title').innerText = document.getElementById('reportTitle').value || "土地巡檢報告";
+            document.getElementById('h_name').innerText = "報告人：" + (document.getElementById('inspector').value || "-");
+            document.getElementById('h_date').innerText = "日期：" + document.getElementById('reportDate').value;
+        }
+
+        function addEntry() {
+            const file = document.getElementById('imgInput').files[0];
+            const lot = document.getElementById('lotInput').value;
+            const main = document.getElementById('mainStatus').value;
+            const sub = document.getElementById('subStatus').value;
+            const other = document.getElementById('otherStatusInput').value;
+            const remark = document.getElementById('remarkInput').value;
+
+            if (!file) return alert("請選取相片");
+
+            let finalStatus = (main === "其他") ? `其他: ${other || "未註明"}` : `${main} - ${sub}`;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                entries.push({ img: e.target.result, lot, status: finalStatus, remark });
+                document.getElementById('imgInput').value = "";
+                document.getElementById('lotInput').value = "";
+                document.getElementById('otherStatusInput').value = "";
+                document.getElementById('remarkInput').value = "";
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function render() {
+            const tbody = document.querySelector("#reportTable tbody");
+            tbody.innerHTML = "";
+            for (let i = 0; i < entries.length; i += 2) {
+                const trImg = document.createElement("tr");
+                trImg.innerHTML = `
+                    <td class="img-cell"><img src="${entries[i].img}"></td>
+                    <td class="img-cell">${entries[i+1] ? `<img src="${entries[i+1].img}">` : ""}</td>
+                `;
+                const trText = document.createElement("tr");
+                trText.innerHTML = `
+                    <td class="text-cell">
+                        <span class="lot-info">地段：${entries[i].lot || "N/A"}</span>
+                        <span class="status-info">狀況：${entries[i].status}</span>
+                        ${entries[i].remark ? `<div class="remark-info">備註：${entries[i].remark}</div>` : ""}
+                    </td>
+                    <td class="text-cell">
+                        ${entries[i+1] ? `
+                            <span class="lot-info">地段：${entries[i+1].lot || "N/A"}</span>
+                            <span class="status-info">狀況：${entries[i+1].status}</span>
+                            ${entries[i+1].remark ? `<div class="remark-info">備註：${entries[i+1].remark}</div>` : ""}
+                        ` : ""}
+                    </td>
+                `;
+                tbody.appendChild(trImg); tbody.appendChild(trText);
+            }
+        }
+
+        function clearAll() {
+            if(confirm("確定清空嗎？")) { entries = []; render(); }
+        }
+    </script>
+</body>
+</html>
